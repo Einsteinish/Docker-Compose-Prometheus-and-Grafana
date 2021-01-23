@@ -1,4 +1,4 @@
-version: '2.1'
+version: '3.4'
 
 networks:
   monitor-net:
@@ -7,9 +7,9 @@ networks:
 volumes:
     prometheus_data: {}
     grafana_data: {}
+    loki_data: {}
 
 services:
-
   prometheus:
     image: prom/prometheus:v2.17.1
     container_name: prometheus
@@ -85,7 +85,7 @@ services:
       org.label-schema.group: "monitoring"
 
   grafana:
-    image: grafana/grafana:6.7.2
+    image: grafana/grafana:7.3.7
     container_name: grafana
     volumes:
       - grafana_data:/var/lib/grafana
@@ -94,6 +94,7 @@ services:
       - GF_SECURITY_ADMIN_USER=${ADMIN_USER}
       - GF_SECURITY_ADMIN_PASSWORD=${ADMIN_PASSWORD}
       - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=frser-sqlite-datasource,grafana-piechart-panel
     restart: unless-stopped
     expose:
       - 3000
@@ -131,3 +132,43 @@ services:
       - monitor-net
     labels:
       org.label-schema.group: "monitoring"
+
+  loki:
+    image: grafana/loki:2.0.0
+    container_name: loki
+    ports:
+      - "3100:3100"
+    command: -config.file=/mnt/config/loki-config.yaml
+    volumes:
+      - loki_data:/data/loki
+      - ./:/mnt/config
+    networks:
+      - monitor-net
+    labels:
+      org.label-schema.group: "monitoring"
+
+  promtail:
+    image: grafana/promtail:2.0.0
+    container_name: promtail
+    volumes:
+      - ./:/mnt/config
+      - /var/log:/var/log
+    #command: -config.file=/mnt/config/promtail-config.yaml
+    networks:
+      - monitor-net
+    labels:
+      org.label-schema.group: "monitoring"
+
+# EXAMPLE
+#  nginx:
+#    image: nginx
+#    container_name: nginx
+#    ports:
+#      - 8000:80
+#    environment:
+#      - FOO=bar
+#    logging:
+#      driver: loki
+#      options:
+#        loki-url: http://localhost:3100/loki/api/v1/push
+#        loki-external-labels: job=dockerlogs,environment=development
